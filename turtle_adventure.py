@@ -294,6 +294,9 @@ class DemoEnemy(Enemy):
 
 
 class RandomWalkEnemy(Enemy):
+    """
+    RandomWalkEnemy : will walk randomly on the screen.
+    """
 
     def __init__(self,
                  game: "TurtleAdventureGame",
@@ -336,6 +339,10 @@ class RandomWalkEnemy(Enemy):
 
 
 class ChasingEnemy(Enemy):
+    """
+    ChasingEnemy : will try chasing the player. Try not to move this enemy too fast, otherwise the player
+    will have no chance to win.
+    """
     def __init__(self,
                  game: "TurtleAdventureGame",
                  size: int,
@@ -385,53 +392,34 @@ class ChasingEnemy(Enemy):
 
 
 class FencingEnemy(Enemy):
+    """
+    FencingEnemy : will walk around the home in a square-like pattern.
+    """
+
     def __init__(self,
                  game: "TurtleAdventureGame",
                  size: int,
                  color: str,
-                 speed: float):
+                 speed: float,
+                 angular_speed: float = 3.0):  # Adjust the default angular speed
         super().__init__(game, size, color, speed)
         self.__id = None
-        self.__waypoint = game.waypoint
-        self.__corner_index = 0  # Index of the current corner in the square path
-        self.__corner_positions = []  # Positions of the corners of the square path
-
-        if self.__waypoint.is_active:
-            self.x = self.__waypoint.x
-            self.y = self.__waypoint.y
+        self.__home_x, self.__home_y = self.game.home.x, self.game.home.y
+        self.__speed = speed
+        self.angle = 0
+        self.__angular_speed = angular_speed  # Store the angular speed
 
     def create(self) -> None:
-        self.__id = self.canvas.create_rectangle(0, 0, 0, 0, fill=self.color)
+        self.__id = self.canvas.create_oval(0, 0, 0, 0, fill=self.color)
 
     def update(self) -> None:
-        if not self.__waypoint.is_active:
-            return
+        radius = 30
+        self.angle += self.__angular_speed  # Use the adjusted angular speed
+        new_x = self.__home_x + radius * math.cos(math.radians(self.angle))
+        new_y = self.__home_y + radius * math.sin(math.radians(self.angle))
 
-        if not self.__corner_positions:
-            # Calculate the square path around the waypoint
-            self.calculate_square_path()
+        self.x, self.y = new_x, new_y
 
-        if not self.__corner_positions:
-            return
-
-        # Move towards the next corner in the square path
-        target_x, target_y = self.__corner_positions[self.__corner_index]
-
-        dx = target_x - self.x
-        dy = target_y - self.y
-        distance = math.sqrt(dx ** 2 + dy ** 2)
-
-        if distance > self.speed:
-            # Move towards the corner
-            direction_x = dx / distance
-            direction_y = dy / distance
-            self.x += direction_x * self.speed
-            self.y += direction_y * self.speed
-        else:
-            # Reached the corner, move to the next corner
-            self.__corner_index = (self.__corner_index + 1) % len(self.__corner_positions)
-
-        # Check if the enemy hits the player
         if self.hits_player():
             self.game.game_over_lose()
 
@@ -440,26 +428,16 @@ class FencingEnemy(Enemy):
                            self.x - self.size / 2,
                            self.y - self.size / 2,
                            self.x + self.size / 2,
-                           self.y + self.size / 2)
+                           self.y + self.size / 2, )
 
     def delete(self) -> None:
-        self.canvas.delete(self.__id)
-
-    def calculate_square_path(self) -> None:
-        """
-        Calculate the square path around the waypoint
-        """
-        waypoint_x, waypoint_y = self.__waypoint.x, self.__waypoint.y
-        distance = 50  # Distance from the waypoint to the corners
-        self.__corner_positions = [
-            (waypoint_x - distance, waypoint_y - distance),
-            (waypoint_x + distance, waypoint_y - distance),
-            (waypoint_x + distance, waypoint_y + distance),
-            (waypoint_x - distance, waypoint_y + distance)
-        ]
+        pass
 
 
 class CircularEnemy(Enemy):
+    """
+    CircularEnemy : represents enemies that move in a circular path around a center point.
+    """
     def __init__(self,
                  game: "TurtleAdventureGame",
                  size: int,
@@ -479,14 +457,12 @@ class CircularEnemy(Enemy):
         self.__id = self.canvas.create_oval(0, 0, 0, 0, fill=self.color)
 
     def update(self) -> None:
-        # Calculate the new position based on the circular motion
         self.__angle += self.__angular_speed
-        self.__angle %= 360  # Keep angle within 0-359 degrees range
+        self.__angle %= 360
         radian_angle = math.radians(self.__angle)
         self.x = self.__center[0] + self.__radius * math.cos(radian_angle)
         self.y = self.__center[1] + self.__radius * math.sin(radian_angle)
 
-        # Check if the enemy hits the player
         if self.hits_player():
             self.game.game_over_lose()
 
@@ -508,7 +484,6 @@ class CircularEnemy(Enemy):
 #
 # Hint: the 'game' parameter is a tkinter's frame, so it's after()
 # method can be used to schedule some future events.
-
 
 class EnemyGenerator:
     """
@@ -542,36 +517,33 @@ class EnemyGenerator:
         """
         Create a new enemy, possibly based on the game level
         """
-        # Create a new instance of RandomWalkEnemy
+        num_fencing_enemies = 3
+
         new_random_enemy = RandomWalkEnemy(self.__game, size=20, color="blue", speed=7.0)
-        # Set the position of the RandomWalkEnemy instance randomly within the game screen
         new_random_enemy.x = random.randint(0, self.__game.screen_width)
         new_random_enemy.y = random.randint(0, self.__game.screen_height)
-        # Add the RandomWalkEnemy instance to the game
         self.game.add_enemy(new_random_enemy)
 
-        # Create a new instance of ChasingEnemy
         new_chasing_enemy = ChasingEnemy(self.__game, size=20, color="red", speed=3.0)
-        # Set the position of the ChasingEnemy instance randomly within the game screen
         new_chasing_enemy.x = random.randint(0, self.__game.screen_width)
         new_chasing_enemy.y = random.randint(0, self.__game.screen_height)
-        # Add the ChasingEnemy instance to the game
         self.game.add_enemy(new_chasing_enemy)
 
-        # Create a new instance of FencingEnemy
-        new_fencing_enemy = FencingEnemy(self.__game, size=10, color="green", speed=2.0)
-        self.game.add_enemy(new_fencing_enemy)
+        for _ in range(num_fencing_enemies):
+            new_enemy = FencingEnemy(self.__game, 16, "green", 20)
+            random_x = (self.game.home.x + 20, self.game.home.x + 40)
+            random_y = (self.game.home.y + 20, self.game.home.y + 40)
+            new_enemy.x = random_x
+            new_enemy.y = random_y
+            self.game.add_enemy(new_enemy)
 
-        # Create a new instance of CircularEnemy
-        center = (self.__game.screen_width // 2, self.__game.screen_height // 2)  # Center of the screen
-        radius = 100  # Radius of the circular motion
-        angular_speed = 2  # Angular speed in degrees per frame
+        center = (self.__game.screen_width // 2, self.__game.screen_height // 2)
+        radius = 100
+        angular_speed = 2
         new_circular_enemy = CircularEnemy(self.__game, size=15, color="orange", speed=2.5,
                                            center=center, radius=radius, angular_speed=angular_speed)
-        # Add the CircularEnemy instance to the game
         self.game.add_enemy(new_circular_enemy)
 
-        # Schedule the creation of the next enemy with a random delay
         delay = random.randint(1000, 2000)
         self.__game.after(delay, self.create_enemy)
 
